@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 # -*- mode: Python;-*-
 
-# READMEEE
+# A tool for automatically generating Couchbase Server vagrant files
 
 # IMPORTS
 import argparse
@@ -62,9 +62,6 @@ elif 'rhel' in OSname.lower() or 'centos' in OSname.lower():
 ip_address_base = "192.168.71.10%d"
 box = "puppetlabs/centos-6.5-64-puppet"
 
-print "Created a " + no_of_nodes + " node cluster running cb version " + version + " on " + OSname
-
-
 #Vagrant File
 lines_vagr = ['# Couchbase Server Clustering vagrant file.',
 				'# Generated automatically by prefab!\n',
@@ -100,10 +97,38 @@ lines_mani = ['# ===',
 							'# Install and Run Couchbase Server',
 							'# ===\n',
 							'$version = "' + version + '"',
-							#'$stem = "' + stem + '"',
-							'}'
-
-
+							'$stem = "couchbase-server-enterprise_centos6_x86_64_${version}"',
+							'$suffix = $operatingsystem ? {',
+							'	Ubuntu +> ".deb"',
+							'	CentOS => ".rpm"',
+							'}',
+							'$filename = "$stem$suffix"\n',
+							'# Download the Sources',
+							'exec { "couchbase-server-source":',
+							'  command => "/usr/bin/wget http://packages.northscale.com/latestbuilds/3.0.0/$filename",',
+							'	cwd => "/vagrant/",',
+							'	creates => "/vagrant/$filename",',
+							'	before => Package[\'couchbase-server\']',
+							'}\n',
+							'# Install Coucbase Server',
+							'package { "couchbase-server":',
+							'	provider => $operatingsystem ? {',
+							'		Ubuntu => dkpg,',
+							'		CentOS => rpm,',
+							'	},',
+							'ensure => installed,',
+							'ource => "/vagrant/$filename",',
+							'}\n',
+							'# Ensure firewall is off (some CentOS images have firewall on by default).',
+							'service { "iptables":',
+							'	ensure => "stopped",',
+							'	enable => false,',
+							'}\n',
+							'# Ensure the service is running',
+							'	service { "couchbase-server":',
+							'	ensure => "running",',
+							'	require => Package["couchbase-server"]',
+							'}\n'
 				]
 
 
@@ -122,3 +147,5 @@ except:
 
 with open (filename, 'w') as f:
 	f.write('\n'.join(lines_mani))
+
+print "Created a " + no_of_nodes + " node cluster running cb version " + version + " on " + OSname
