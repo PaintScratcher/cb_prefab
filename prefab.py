@@ -18,7 +18,7 @@ parser.add_argument("-a", "-ask", help='provide cli input for all options', meta
 args = parser.parse_args()
 
 # Define Variables and take user input if no flags set
-
+node_config = '			# box pre-configured'
 if args.v:
 	version = args.v
 elif args.a:
@@ -41,26 +41,32 @@ else:
 	OSname = 'Ubuntu14'
 
 if 'ubuntu' in OSname.lower():
-	if '10' in OSname:
-		OSname = 'Ubuntu10'
-	elif '12' in OSname:
+	#if '10' in OSname: REMOVING UBUNTU10 FOR THE MOMENT
+	#	OSname = 'Ubuntu10'
+	if '12' in OSname:
 		OSname = 'Ubuntu12'
+		box = 'config.vm.box_url = "http://files.vagrantup.com/precise64.box"'
+		node_config = '			node.vm.box = "precise64"'
 	elif '14' in OSname:
 		OSname = 'Ubuntu14'
+		box = 'config.vm.box = "ubuntu/trusty64"'
 	else:
 		print 'Unrecognised OS'
 		sys.exit(0)
 elif 'rhel' in OSname.lower() or 'centos' in OSname.lower():
 	if '5' in OSname:
 		OSname = 'CentOS5'
+		box = 'config.vm.box_url = "https://dl.dropbox.com/u/17738575/CentOS-5.8-x86_64.box"'
+		node_config = '			node.vm.box = "centos5u8_x64"'
 	elif '6' in OSname:
 		OSname = 'CentOS6'
+		box = 'config.vm.box = "puppetlabs/centos-6.5-64-puppet"'
 	else:
 		print 'Unrecognised OS'
 		sys.exit(0)
 
 ip_address_base = "192.168.71.10%d"
-box = "puppetlabs/centos-6.5-64-puppet"
+
 
 #Vagrant File
 lines_vagr = ['# Couchbase Server Clustering vagrant file.',
@@ -78,10 +84,11 @@ lines_vagr = ['# Couchbase Server Clustering vagrant file.',
 				'	end\n',
 				'	# Provision the server itself with puppet',
 				'	config.vm.provision :puppet\n',
-				'	config.vm.box = "' + box + '"\n',
+				'	'+ box + '\n',
 				'	# Provision Config for each of the nodes',
 				'	1.upto(num_nodes) do |num|',
 				'		config.vm.define "node#{num}" do |node|',
+						node_config,
 				'			node.vm.network :private_network, :ip => ip_addr_base % num',
 				'			node.vm.provider "virtualbox" do |v|',
 				'				v.name = "Couchbase Server #{version} ' + OSname + ' Node #{num}"',
