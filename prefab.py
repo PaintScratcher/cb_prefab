@@ -8,7 +8,7 @@ import argparse
 import os
 import sys
 
-# FLAGS
+# FLAGS - Command line interface
 parser = argparse.ArgumentParser(description='Automatically generate vagrant configurations')
 parser.add_argument("-os", '--os', help='desired operating system', metavar='')
 parser.add_argument("-n", "--nodes", help='number of nodes to provision', metavar='')
@@ -17,30 +17,43 @@ parser.add_argument("-a", "-ask", help='provide cli input for all options', meta
 
 args = parser.parse_args()
 
+### DEFINITIONS ###
+
 # Define Variables and take user input if no flags set
-node_config = '			# box pre-configured'
-if args.v:
+
+if args.v:	# Define Couchbase server version
 	version = args.v
 elif args.a:
 	version = str(raw_input('Couchbase version? (x.x.x): '))
 else:
 	version = '3.0.0'
 
-if args.nodes:
+if args.nodes: # Define the number of nodes to be provisioned
 	no_of_nodes = args.nodes
 elif args.a:
 	no_of_nodes = str(raw_input('Number of nodes?: '))
 else:
 	no_of_nodes = '1'
 
-if args.os:
+if args.os: # Define the Operating system for the cluster
 	OSname = args.os
 elif args.a:
 	OSname = str(raw_input('OS? (NameVersion): '))
 else:
 	OSname = 'Ubuntu14'
 
-if 'ubuntu' in OSname.lower():
+# Parse though the given imputs to generate definitions
+
+if '3.' in version: # Change the download location for 3 beta builds
+	command = 'http://packages.northscale.com/latestbuilds/3.0.0/$filename'
+	stem = "couchbase-server-enterprise_centos6_x86_64_${version}"
+else:
+	command = 'http://packages.couchbase.com/releases/${version}/${filename}'
+	stem = "couchbase-server-enterprise_${version}_x86_64."
+
+
+node_config = '			# box pre-configured'
+if 'ubuntu' in OSname.lower(): # Change the vagrant base box for each OS
 	#if '10' in OSname: REMOVING UBUNTU10 FOR THE MOMENT
 	#	OSname = 'Ubuntu10'
 	if '12' in OSname:
@@ -67,8 +80,9 @@ elif 'rhel' in OSname.lower() or 'centos' in OSname.lower():
 
 ip_address_base = "192.168.71.10%d"
 
+### EXPORT ###
 
-#Vagrant File
+#Vagrant File Setup
 lines_vagr = ['# Couchbase Server Clustering vagrant file.',
 				'# Generated automatically by prefab!\n',
 				'Vagrant.configure("2") do |config|\n',
@@ -99,20 +113,20 @@ lines_vagr = ['# Couchbase Server Clustering vagrant file.',
 
 				]
 
-# Manifest File
+# Manifest File Setup
 lines_mani = ['# ===',
 							'# Install and Run Couchbase Server',
 							'# ===\n',
 							'$version = "' + version + '"',
-							'$stem = "couchbase-server-enterprise_centos6_x86_64_${version}"',
+							'$stem = "' + stem + '"',
 							'$suffix = $operatingsystem ? {',
-							'	Ubuntu +> ".deb"',
+							'	Ubuntu => ".deb"',
 							'	CentOS => ".rpm"',
 							'}',
 							'$filename = "$stem$suffix"\n',
 							'# Download the Sources',
 							'exec { "couchbase-server-source":',
-							'  command => "/usr/bin/wget http://packages.northscale.com/latestbuilds/3.0.0/$filename",',
+							'  command =>  "/usr/bin/wget '+ command + '",',
 							'	cwd => "/vagrant/",',
 							'	creates => "/vagrant/$filename",',
 							'	before => Package[\'couchbase-server\']',
@@ -124,7 +138,7 @@ lines_mani = ['# ===',
 							'		CentOS => rpm,',
 							'	},',
 							'ensure => installed,',
-							'ource => "/vagrant/$filename",',
+							'source => "/vagrant/$filename",',
 							'}\n',
 							'# Ensure firewall is off (some CentOS images have firewall on by default).',
 							'service { "iptables":',
@@ -139,14 +153,14 @@ lines_mani = ['# ===',
 				]
 
 
-#Export files
+# Export files
 with open('Vagrantfile', 'w') as f:
 	f.write('\n'.join(lines_vagr))
 
 filename = "./manifests/default.pp"
 dir = os.path.dirname(filename)
 
-try:
+try:  # Check to see if the manifest directory / file has been created (and create it)
 	os.stat(dir)
 except:
 	print "No directory " + dir
