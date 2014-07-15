@@ -8,12 +8,13 @@ import argparse
 import os
 import sys
 
-# FLAGS - Command line interface
+# Flags for the command line interface
 parser = argparse.ArgumentParser(description='Automatically generate vagrant configurations')
 parser.add_argument("-os", '--os', help='desired operating system', metavar='')
 parser.add_argument("-n", "--nodes", help='number of nodes to provision', metavar='')
 parser.add_argument("-v", "-version", help='couchbase version', metavar='')
 parser.add_argument("-a", "-ask", help='provide cli input for all options', metavar='')
+parser.add_argument("-i", "--ip", help='base ip address for the cluster', metavar='')
 
 args = parser.parse_args()
 
@@ -41,6 +42,13 @@ elif args.a:
 	OSname = str(raw_input('OS? (NameVersion): '))
 else:
 	OSname = 'Ubuntu14'
+
+if args.ip: # Define the base ip address for the cluster
+	ip = args.ip
+elif args.a:
+	ip = str(raw_input('Base IP Address?: '))
+else:
+	ip = "192.168.68"
 
 # Parse though the given imputs to generate definitions
 
@@ -78,8 +86,6 @@ elif 'rhel' in OSname.lower() or 'centos' in OSname.lower():
 		print 'Unrecognised OS'
 		sys.exit(0)
 
-ip_address_base = "192.168.71.10%d"
-
 ### EXPORT ###
 
 #Vagrant File Setup
@@ -91,7 +97,7 @@ lines_vagr = ['# Couchbase Server Clustering vagrant file.',
 				'	# Number of nodes to provision',
 				'	num_nodes = ' + no_of_nodes + '\n',
 				'	# IP Address Base for private network',
-				'	ip_addr_base = "' + ip_address_base + '"\n',
+				'	ip_addr_base = "' + ip + '"\n',
 				'	# Define Number of RAM for each node',
 				'	config.vm.provider :virtualbox do |v|',
 				'		v.customize ["modifyvm", :id, "--memory", 1024]',
