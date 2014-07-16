@@ -48,7 +48,7 @@ if args.ip: # Define the base ip address for the cluster
 elif args.a:
 	ip = str(raw_input('Base IP Address?: '))
 else:
-	ip = "192.168.68"
+	ip = "192.168.68.10"
 
 # Parse though the given imputs to generate definitions
 
@@ -57,13 +57,15 @@ if '3.' in version: # Change the download location for 3 beta builds
 	stem = "couchbase-server-enterprise_centos6_x86_64_${version}"
 else:
 	command = 'http://packages.couchbase.com/releases/${version}/${filename}'
-	stem = "couchbase-server-enterprise_${version}_x86_64."
+	stem = "couchbase-server-enterprise_${version}_x86_64"
 
 
 node_config = '			# box pre-configured'
 if 'ubuntu' in OSname.lower(): # Change the vagrant base box for each OS
 	#if '10' in OSname: REMOVING UBUNTU10 FOR THE MOMENT
 	#	OSname = 'Ubuntu10'
+	extra = '# Update the System\nexec { "apt-get update":\n	path => "/usr/bin"\n}\n\n# Install libssl dependency\npackage { "libssl0.9.8":\n	ensure => present,\n  require => Exec["apt-get update"]\n}\n'
+
 	if '12' in OSname:
 		OSname = 'Ubuntu12'
 		box = 'config.vm.box_url = "http://files.vagrantup.com/precise64.box"'
@@ -75,6 +77,8 @@ if 'ubuntu' in OSname.lower(): # Change the vagrant base box for each OS
 		print 'Unrecognised OS'
 		sys.exit(0)
 elif 'rhel' in OSname.lower() or 'centos' in OSname.lower():
+	extra = '# Ensure firewall is off (some CentOS images have firewall on by default).\nservice { "iptables":\n	ensure => "stopped",\n	enable => false,\n}'
+
 	if '5' in OSname:
 		OSname = 'CentOS5'
 		box = 'config.vm.box_url = "https://dl.dropbox.com/u/17738575/CentOS-5.8-x86_64.box"'
@@ -97,7 +101,7 @@ lines_vagr = ['# Couchbase Server Clustering vagrant file.',
 				'	# Number of nodes to provision',
 				'	num_nodes = ' + no_of_nodes + '\n',
 				'	# IP Address Base for private network',
-				'	ip_addr_base = "' + ip + '"\n',
+				'	ip_addr_base = "' + ip + '%d"\n',
 				'	# Define Number of RAM for each node',
 				'	config.vm.provider :virtualbox do |v|',
 				'		v.customize ["modifyvm", :id, "--memory", 1024]',
@@ -126,31 +130,27 @@ lines_mani = ['# ===',
 							'$version = "' + version + '"',
 							'$stem = "' + stem + '"',
 							'$suffix = $operatingsystem ? {',
-							'	Ubuntu => ".deb"',
-							'	CentOS => ".rpm"',
+							'	Ubuntu => ".deb",',
+							'	CentOS => ".rpm",',
 							'}',
 							'$filename = "$stem$suffix"\n',
 							'# Download the Sources',
 							'exec { "couchbase-server-source":',
 							'  command =>  "/usr/bin/wget '+ command + '",',
 							'	cwd => "/vagrant/",',
-							'	creates => "/vagrant/$filename",',
+							'	creates => "/vagrant/${filename}",',
 							'	before => Package[\'couchbase-server\']',
 							'}\n',
 							'# Install Coucbase Server',
 							'package { "couchbase-server":',
 							'	provider => $operatingsystem ? {',
-							'		Ubuntu => dkpg,',
+							'		Ubuntu => dpkg,',
 							'		CentOS => rpm,',
 							'	},',
 							'ensure => installed,',
 							'source => "/vagrant/$filename",',
 							'}\n',
-							'# Ensure firewall is off (some CentOS images have firewall on by default).',
-							'service { "iptables":',
-							'	ensure => "stopped",',
-							'	enable => false,',
-							'}\n',
+							extra,
 							'# Ensure the service is running',
 							'	service { "couchbase-server":',
 							'	ensure => "running",',
